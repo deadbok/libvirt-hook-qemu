@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import sys
+import syslog
 
 
 CONFIG_PATH = os.getenv('CONFIG_PATH') or os.path.dirname(os.path.abspath(__file__))
@@ -108,16 +109,26 @@ def config(validate=True):
                                     format_checker=jsonschema.FormatChecker())
             except ImportError:
                 pass
+            except jsonschema.exceptions.ValidationError:
+                syslog.syslog(syslog.LOG_ALERT,
+                              'Error validating configuration file "{}"'.format(
+                                  CONFIG_FILENAME))
     return config._conf
 
 
 
 def create_chain(table, name):
     """ Creates the named chain. """
+    syslog.syslog(
+        'Creating chain "{}" in table "{}"'.format(
+                      table, name))
     subprocess.call([IPTABLES_BINARY, "-t", table, "-N", name])
 
 def delete_chain(table, name):
     """ Flushes and deletes the named chain. """
+    syslog.syslog(
+        'Deleting chain "{}" in table "{}"'.format(
+                      table, name))
     subprocess.call([IPTABLES_BINARY, "-t", table, "-F", name])
     subprocess.call([IPTABLES_BINARY, "-t", table, "-X", name])
 
@@ -137,8 +148,18 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             interface = ["-o", domain["interface"]] if "interface" in domain else []
             subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", protocol,
                 "-d", private_ip, "--dport", str(private_port), "-j", "ACCEPT"] + interface)
+            syslog.syslog('Populating chains for domain "{}" from a port map'.format(domain))
+            syslog.syslog(
+                'Populating DNAT chain "{}"'.format(dnat_chain))
+            syslog.syslog(
+                'Populating SNAT chain "{}"'.format(snat_chain))
+            syslog.syslog(
+                'Populating FORWARD chain "{}"'.format(fwd_chain))
+            syslog.syslog('Public IP {}:{}'.format(public_ip, public_port))
+            syslog.syslog('Private IP {}:{}, finl destination {}'.format(private_ip, private_port, dest))
+            syslog.syslog('Source IP {}'.format(source_ip))
+            syslog.syslog('Interface "{}"'.format(interface))
 
-            
     # Iterate over all port ranges
     if "port_range" in domain:
         for port_range in domain["port_range"]:
@@ -152,6 +173,17 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             interface = ["-o", domain["interface"]] if "interface" in domain else []
             subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", port_range["protocol"],
                 "-d", private_ip, "--dport", ports_range, "-j", "ACCEPT"] + interface)
+            syslog.syslog('Populating chains for domain "{}" from a port range'.format(domain))
+            syslog.syslog(
+                'Populating DNAT chain "{}"'.format(dnat_chain))
+            syslog.syslog(
+                'Populating SNAT chain "{}"'.format(snat_chain))
+            syslog.syslog(
+                'Populating FORWARD chain "{}"'.format(fwd_chain))
+            syslog.syslog('Public IP {}'.format(public_ip))
+            syslog.syslog('Private IP {}:{}, finl destination {}'.format(private_ip, ports_range, dest))
+            syslog.syslog('Source IP {}'.format(source_ip))
+            syslog.syslog('Interface "{}"'.format(interface))
 
 def insert_chains(action, dnat_chain, snat_chain, fwd_chain, public_ip, private_ip):
     """ inserts (action='-I') or removes (action='-D') the custom chains."""
