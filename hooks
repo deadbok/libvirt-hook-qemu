@@ -148,7 +148,7 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             interface = ["-o", domain["interface"]] if "interface" in domain else []
             subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", protocol,
                 "-d", private_ip, "--dport", str(private_port), "-j", "ACCEPT"] + interface)
-            syslog.syslog('Populating chains for domain "{}" from a port map'.format(domain))
+            syslog.syslog('Populating chains from a port map')
             syslog.syslog(
                 'Populating DNAT chain "{}"'.format(dnat_chain))
             syslog.syslog(
@@ -173,7 +173,7 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             interface = ["-o", domain["interface"]] if "interface" in domain else []
             subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", port_range["protocol"],
                 "-d", private_ip, "--dport", ports_range, "-j", "ACCEPT"] + interface)
-            syslog.syslog('Populating chains for domain "{}" from a port range'.format(domain))
+            syslog.syslog('Populating chains from a port range')
             syslog.syslog(
                 'Populating DNAT chain "{}"'.format(dnat_chain))
             syslog.syslog(
@@ -187,6 +187,15 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
 
 def insert_chains(action, dnat_chain, snat_chain, fwd_chain, public_ip, private_ip):
     """ inserts (action='-I') or removes (action='-D') the custom chains."""
+    syslog.syslog('Inserting chains')
+    syslog.syslog(
+        'Populating DNAT chain "{}"'.format(dnat_chain))
+    syslog.syslog(
+        'Populating SNAT chain "{}"'.format(snat_chain))
+    syslog.syslog(
+        'Populating FORWARD chain "{}"'.format(fwd_chain))
+    syslog.syslog('Public IP {}'.format(public_ip))
+    syslog.syslog('Private IP {}'.format(private_ip))
     subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "OUTPUT", "-d", public_ip, "-j", dnat_chain])
     subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "PREROUTING", "-d", public_ip, "-j", dnat_chain])
     subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "POSTROUTING", "-s", private_ip, "-d", private_ip, "-j", snat_chain])
@@ -194,6 +203,7 @@ def insert_chains(action, dnat_chain, snat_chain, fwd_chain, public_ip, private_
 
 # the snat_chain doesn't work unless we turn off filtering bridged packets
 def disable_bridge_filtering():
+    syslog.syslog('Disabling bridge filtering')
     proc_file = '/proc/sys/net/bridge/bridge-nf-call-iptables'
     if(os.path.isfile(proc_file)):
         with open(proc_file, 'w') as brnf:
@@ -202,6 +212,7 @@ def disable_bridge_filtering():
 
 def start_forwarding(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, domain, source_ip):
     """ sets up iptables port-forwarding rules based on the port_map. """
+    syslog.syslog('Start forwarding')
     disable_bridge_filtering()
     create_chain("nat", dnat_chain)
     create_chain("nat", snat_chain)
@@ -213,6 +224,7 @@ def start_forwarding(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, d
 
 def stop_forwarding(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip):
     """ tears down the iptables port-forwarding rules. """
+    syslog.syslog('Stop forwarding')
     insert_chains("-D", dnat_chain, snat_chain, fwd_chain, public_ip, private_ip)
     delete_chain("nat", dnat_chain)
     delete_chain("nat", snat_chain)
