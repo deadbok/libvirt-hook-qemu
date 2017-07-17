@@ -132,6 +132,10 @@ def delete_chain(table, name):
     subprocess.call([IPTABLES_BINARY, "-t", table, "-F", name])
     subprocess.call([IPTABLES_BINARY, "-t", table, "-X", name])
 
+def logged_call(args):
+    ret = subprocess.call(args, stdout=PIPE)
+    syslog.syslog(ret.communicate()[0])
+
 def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, domain, source_ip):
     """ Fills the two custom chains with the port mappings. """
     port_map = domain["port_map"]
@@ -140,13 +144,13 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             # a single integer 80 is equivalent to [80, 80]
             public_port, private_port = ports if isinstance(ports, list) else [ports, ports]
             dest = "{0}:{1}".format(private_ip, str(private_port))
-            subprocess.call([IPTABLES_BINARY, "-t", "nat", "-A", dnat_chain, "-p", protocol,
+            logged_call([IPTABLES_BINARY, "-t", "nat", "-A", dnat_chain, "-p", protocol,
                 "-d", public_ip, "--dport", str(public_port), "-j", "DNAT", "--to", dest] +
                 (["-s", source_ip] if source_ip else []))
-            subprocess.call([IPTABLES_BINARY, "-t", "nat", "-A", snat_chain, "-p", protocol,
+            logged_call([IPTABLES_BINARY, "-t", "nat", "-A", snat_chain, "-p", protocol,
                 "-s", private_ip, "-d", private_ip, "--dport", str(public_port), "-j", "MASQUERADE"])
             interface = ["-o", domain["interface"]] if "interface" in domain else []
-            subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", protocol,
+            logged_call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", protocol,
                 "-d", private_ip, "--dport", str(private_port), "-j", "ACCEPT"] + interface)
             syslog.syslog('Populating chains from a port map')
             syslog.syslog(
@@ -166,12 +170,12 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, do
             ports_range = (str(port_range["init_port"]) + ":" + 
                 str(port_range["init_port"] + port_range["ports_num"] -1))
             dest = "{0}:{1}".format(private_ip, ports_range.replace(":", "-", 1))
-            subprocess.call([IPTABLES_BINARY, "-t", "nat", "-A", dnat_chain, "-p", port_range["protocol"],
+            logged_call([IPTABLES_BINARY, "-t", "nat", "-A", dnat_chain, "-p", port_range["protocol"],
                 "-d", public_ip, "--dport", ports_range, "-j", "DNAT", "--to", dest])
-            subprocess.call([IPTABLES_BINARY, "-t", "nat", "-A", snat_chain, "-p", port_range["protocol"],
+            logged_call([IPTABLES_BINARY, "-t", "nat", "-A", snat_chain, "-p", port_range["protocol"],
                 "-s", private_ip, "-d", private_ip, "--dport", ports_range, "-j", "MASQUERADE"])
             interface = ["-o", domain["interface"]] if "interface" in domain else []
-            subprocess.call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", port_range["protocol"],
+            logged_call([IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p", port_range["protocol"],
                 "-d", private_ip, "--dport", ports_range, "-j", "ACCEPT"] + interface)
             syslog.syslog('Populating chains from a port range')
             syslog.syslog(
@@ -196,10 +200,10 @@ def insert_chains(action, dnat_chain, snat_chain, fwd_chain, public_ip, private_
         'Populating FORWARD chain "{}"'.format(fwd_chain))
     syslog.syslog('Public IP {}'.format(public_ip))
     syslog.syslog('Private IP {}'.format(private_ip))
-    subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "OUTPUT", "-d", public_ip, "-j", dnat_chain])
-    subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "PREROUTING", "-d", public_ip, "-j", dnat_chain])
-    subprocess.call([IPTABLES_BINARY, "-t", "nat", action, "POSTROUTING", "-s", private_ip, "-d", private_ip, "-j", snat_chain])
-    subprocess.call([IPTABLES_BINARY, "-t", "filter", action, "FORWARD", "-d", private_ip, "-j", fwd_chain])
+    logged_call([IPTABLES_BINARY, "-t", "nat", action, "OUTPUT", "-d", public_ip, "-j", dnat_chain])
+    logged_call([IPTABLES_BINARY, "-t", "nat", action, "PREROUTING", "-d", public_ip, "-j", dnat_chain])
+    logged_call([IPTABLES_BINARY, "-t", "nat", action, "POSTROUTING", "-s", private_ip, "-d", private_ip, "-j", snat_chain])
+    logged_call([IPTABLES_BINARY, "-t", "filter", action, "FORWARD", "-d", private_ip, "-j", fwd_chain])
 
 # the snat_chain doesn't work unless we turn off filtering bridged packets
 def disable_bridge_filtering():
