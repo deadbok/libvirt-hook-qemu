@@ -133,7 +133,7 @@ def delete_chain(table, name):
     subprocess.call([IPTABLES_BINARY, "-t", table, "-X", name])
 
 def logged_call(args):
-    ret = subprocess.call(args, stdout=subprocess.PIPE)
+    ret = subprocess.Popen(args, stdout=subprocess.PIPE)
     syslog.syslog(ret.communicate()[0])
 
 def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip, domain, source_ip):
