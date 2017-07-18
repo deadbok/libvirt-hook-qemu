@@ -9,9 +9,9 @@ DEBUG = False
 
 # Port mapping definitions for each machine
 MACHINES = {
-    'observium': {
+    'test': {
         'private_ip': '192.168.122.2',
-        'port_map': [['22', '2222'], ['80', '8002']]
+        'port_map': [['2222', '22'], ['8002', '80']]
     }
 }
 
@@ -21,7 +21,7 @@ NETWORKS = {
 }
 
 #Public IP address
-PUBLIC_IP = '144.76.102.118'
+PUBLIC_IP = '192.168.0.166'
 
 
 
