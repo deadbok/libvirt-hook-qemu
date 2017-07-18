@@ -10,7 +10,7 @@ Original version by "Sascha Peilicke <saschpe@gmx.de>" adapted for my use-case.
 """
 
 __author__ = "Martin Bo Kristensen Groenholdt <martin.groenholdt@gmail.com>"
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 import os
 import subprocess
