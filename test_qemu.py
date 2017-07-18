@@ -8,7 +8,7 @@ import sys
 import textwrap
 import unittest
 
-qemu = imp.load_source('hooks', 'hooks')
+qemu = imp.load_source('hooks.py', 'hooks.py')
 
 
 class QemuTestCase(unittest.TestCase):
