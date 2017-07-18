@@ -7,10 +7,17 @@ networking on a host with a single public IP address.
 
 Original version by "Sascha Peilicke <saschpe@gmx.de>" adapted for my use-case.
 
+0.2.1:
+======
+
+ * Renamed fwdconf to config.py
+ * Rewrote unit tests
+ * Add log function.
+
 """
 
 __author__ = "Martin Bo Kristensen Groenholdt <martin.groenholdt@gmail.com>"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 import os
 import subprocess
@@ -22,119 +29,144 @@ from importlib.machinery import SourceFileLoader
 CONFIG_PATH = os.getenv('CONFIG_PATH') or os.path.dirname(
     os.path.abspath(__file__))
 CONFIG_FILENAME = os.getenv('CONFIG_FILENAME') or os.path.join(CONFIG_PATH,
-                                                               'fwdconf.py')
+                                                               'config.py')
 IPTABLES_BINARY = os.getenv('IPTABLES_BINARY') or subprocess.check_output(
     ['which', 'iptables']).strip().decode('ascii')
 
 
-def logged_call(args):
+def log(message='', priority=syslog.LOG_INFO):
+    syslog.syslog(priority, message)
+
+
+def logged_call(args, config):
     """
     Log command and stdout from external call.
     """
     if config.DEBUG:
-        syslog.syslog(' '.join(args))
+        log(' '.join(args), syslog.LOG_DEBUG)
 
-    ret = subprocess.Popen(args,stdout=subprocess.PIPE)
+    ret = subprocess.Popen(args, stdout=subprocess.PIPE)
     ret = ret.communicate()[0].decode('ascii')
     if ret != '':
-        syslog.syslog(ret)
+        log(ret, syslog.LOG_ALERT)
 
 
 def ctrl_network(action, libvirt_object, config):
+    cmds = list()
     network = None
     if libvirt_object in config.NETWORKS.keys():
         network = config.NETWORKS[libvirt_object]
     else:
-        syslog.syslog('No network configuration, terminating.')
+        log('No network configuration, terminating.')
         exit(0)
 
     if action in ['unplugged']:
-        syslog.syslog('Removing forwarding rule for network ' +
-                      '{}'.format(network))
-        logged_call(
-            [IPTABLES_BINARY, '-D', 'FORWARD', '-m', 'state', '-d',
-             network, '--state', 'NEW,RELATED,ESTABLISHED', '-j',
-             'ACCEPT'])
+        log('Removing forwarding rule for network ' +
+            '{}'.format(network))
+        cmd = [IPTABLES_BINARY, '-D', 'FORWARD', '-m', 'state', '-d',
+               network, '--state', 'NEW,RELATED,ESTABLISHED', '-j',
+               'ACCEPT']
+        logged_call(cmd, config)
+        cmds.append(' '.join(cmd))
 
     if action in ['plugged']:
-        syslog.syslog('Adding forwarding rule for network ' +
-                      '{}'.format(network))
-        logged_call(
-            [IPTABLES_BINARY, '-I', 'FORWARD', '-m', 'state', '-d',
-             network, '--state', 'NEW,RELATED,ESTABLISHED', '-j',
-             'ACCEPT'])
+        log('Adding forwarding rule for network ' +
+            '{}'.format(network))
+        cmd = [IPTABLES_BINARY, '-I', 'FORWARD', '-m', 'state', '-d',
+               network, '--state', 'NEW,RELATED,ESTABLISHED', '-j',
+               'ACCEPT']
+        logged_call(cmd, config)
+        cmds.append(' '.join(cmd))
+
+    return (cmds)
 
 
 def ctrl_machine(action, libvirt_object, config):
+    cmds = list()
     machine = {}
     if libvirt_object in config.MACHINES.keys():
         machine = config.MACHINES[libvirt_object]
     else:
-        syslog.syslog('No forwarding configuration, terminating.')
+        log('No forwarding configuration, terminating.')
         exit(0)
 
     if action in ['stopped', 'reconnect']:
+        log('Remove {} forwarding rules'.format(libvirt_object))
         for ports in machine['port_map']:
             public_port = ports[0]
             private_port = ports[1]
+            cmd = [IPTABLES_BINARY, '-t', 'nat', '-D', 'PREROUTING', '-p',
+                   'tcp', '-d', config.PUBLIC_IP, '--dport',
+                   public_port, '-j',
+                   'DNAT', '--to-destination',
+                   '{0}:{1}'.format(machine['private_ip'],
+                                    private_port)]
 
-            syslog.syslog('Setting up machine "{}"'.format(machine))
-            syslog.syslog('Private IP and port ' +
-                          '{}:{}'.format(machine['private_ip'],
-                                         private_port))
-            syslog.syslog('Public IP and port ' +
-                          '{}:{}'.format(config.PUBLIC_IP,
-                                         public_port))
-            logged_call(
-                [IPTABLES_BINARY, '-t', 'nat', '-D', 'PREROUTING', '-p',
-                 'tcp', '-d', config.PUBLIC_IP, '--dport',
-                 public_port, '-j',
-                 'DNAT', '--to-destination',
-                 '{0}:{1}'.format(machine['private_ip'],
-                                  private_port)])
+            log(' Private IP and port ' +
+                '{}:{}'.format(machine['private_ip'],
+                               private_port))
+            log(' Public IP and port ' +
+                '{}:{}'.format(config.PUBLIC_IP,
+                               public_port))
+            logged_call(cmd, config)
+            cmds.append(' '.join(cmd))
 
     if action in ['start', 'reconnect']:
+        log('Insert {} forwarding rules'.format(libvirt_object))
         for ports in machine['port_map']:
             public_port = ports[0]
             private_port = ports[1]
+            cmd = [IPTABLES_BINARY, '-t', 'nat', '-I', 'PREROUTING', '-p',
+                   'tcp', '-d', config.PUBLIC_IP, '--dport', public_port, '-j',
+                   'DNAT', '--to-destination',
+                   '{0}:{1}'.format(machine['private_ip'],
+                                    private_port)]
+            log(' Private IP and port ' +
+                '{}:{}'.format(machine['private_ip'],
+                               private_port))
+            log(' Public IP and port ' +
+                '{}:{}'.format(config.PUBLIC_IP,
+                               public_port))
+            logged_call(cmd, config)
+            cmds.append(' '.join(cmd))
 
-            syslog.syslog('Private IP and port ' +
-                          '{}:{}'.format(machine['private_ip'],
-                                         private_port))
-            syslog.syslog('Public IP and port ' +
-                          '{}:{}'.format(config.PUBLIC_IP,
-                                         public_port))
-            logged_call(
-                [IPTABLES_BINARY, '-t', 'nat', '-I', 'PREROUTING', '-p',
-                 'tcp', '-d', config.PUBLIC_IP, '--dport',
-                 public_port, '-j',
-                 'DNAT', '--to-destination',
-                 '{0}:{1}'.format(machine['private_ip'],
-                                  private_port)])
+        return (cmds)
 
 
-if __name__ == '__main__':
+def read_config(filename):
+    return (SourceFileLoader('config', filename).load_module())
+
+
+def main():
     hook, libvirt_object, action = sys.argv[0:3]
     hook = os.path.basename(hook)
-    syslog.syslog('{} {} for {}'.format(action, hook, libvirt_object))
+
+    syslog.openlog(ident='libvirt-hook-' + hook + ' [' + str(os.getpid()) + ']:')
+
+    log('{} {} for {}'.format(action.title(), hook, libvirt_object))
 
     try:
         # Import config.py
-        config = SourceFileLoader('config', CONFIG_FILENAME).load_module()
-        machine = dict()
-        network = dict()
+        config = read_config(CONFIG_FILENAME)
 
         if hook in ['qemu', 'lxc']:
             ctrl_machine(action, libvirt_object, config)
+            pass
 
         if hook == 'network':
             ctrl_network(action, libvirt_object, config)
+            pass
 
     except FileNotFoundError:
-        syslog.syslog('No fwdconf.py.py found, terminating.')
+        log('No config.py.py found, terminating.', syslog.LOG_ERR)
         exit(0)
     except SyntaxError as exception:
-        syslog.syslog('Syntax error in fwdconf.py.py configuration file.')
-        syslog.syslog(str(exception.lineno) + ':' + str(exception.offset) +
-                      ': ' + exception.text)
+        log('Syntax error in config.py.py configuration file.', syslog.LOG_ERR)
+        log(str(exception.lineno) + ':' + str(exception.offset) +
+            ': ' + exception.text, syslog.LOG_ERR)
         exit(1)
+
+
+if __name__ == '__main__':
+    main()
+    exit(0)
