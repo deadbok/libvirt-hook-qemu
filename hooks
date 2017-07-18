@@ -188,7 +188,7 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip,
                 [IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p",
                  protocol,
                  "-d", private_ip, "--dport", str(private_port), "-j",
-                 "ACCEPT"] + interface)
+                 "--state NEW,RELATED,ESTABLISHED", "ACCEPT"] + interface)
             if DEBUG:
                 syslog.syslog(
                     'Populating chains from a port map for protocol {}'.format(
@@ -231,7 +231,7 @@ def populate_chains(dnat_chain, snat_chain, fwd_chain, public_ip, private_ip,
                 [IPTABLES_BINARY, "-t", "filter", "-A", fwd_chain, "-p",
                  port_range["protocol"],
                  "-d", private_ip, "--dport", ports_range, "-j",
-                 "ACCEPT"] + interface)
+                 "--state NEW,RELATED,ESTABLISHED", "ACCEPT"] + interface)
             if DEBUG:
                 # noinspection PyPep8
                 syslog.syslog(
