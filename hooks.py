@@ -55,7 +55,7 @@ def logged_call(args, config):
     """
     Log command and stdout from external call.
 
-    :param args: A list of arguments used in the subproccess call.
+    :param args: A list of arguments used in the sub-process call.
     :param config: Configuration values from the configuration file.
     """
 
