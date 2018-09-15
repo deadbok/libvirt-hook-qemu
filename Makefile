@@ -12,9 +12,9 @@ install: tests /etc/libvirt/hooks/config.json
 	install hooks.py /etc/libvirt/hooks/
 	install hookjsonconf.py /etc/libvirt/hooks/
 	install hookctrl.py /etc/libvirt/hooks/hookctrl
-	ln -sf /etc/libvirt/hooks/hooks.py lxc
-	ln -sf /etc/libvirt/hooks/hooks.py qemu
-	ln -sf /etc/libvirt/hooks/hooks.py network
+	ln -sf /etc/libvirt/hooks/hooks.py /etc/libvirt/hooks/lxc
+	ln -sf /etc/libvirt/hooks/hooks.py /etc/libvirt/hooks/qemu
+	ln -sf /etc/libvirt/hooks/hooks.py /etc/libvirt/hooks/network
 
 /etc/libvirt/hooks/config.json:
 	install -d /etc/libvirt/hooks
