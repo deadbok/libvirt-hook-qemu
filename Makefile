@@ -1,19 +1,26 @@
-LIBVIRT_HOOKS_DIR=/etc/libvirt/hooks
+# Build all rule, only builds the package
+all: install
 
-install:
-	mkdir -p ${LIBVIRT_HOOKS_DIR}
-	cp hooks.py ${LIBVIRT_HOOKS_DIR}
-	if [ ! -f ${LIBVIRT_HOOKS_DIR}/config.py ] ; then cp config.py ${LIBVIRT_HOOKS_DIR} ; fi
-	chmod +x ${LIBVIRT_HOOKS_DIR}/hooks.py
-	ln -s ${LIBVIRT_HOOKS_DIR}/hooks.py ${LIBVIRT_HOOKS_DIR}/network
-	ln -s ${LIBVIRT_HOOKS_DIR}/hooks.py ${LIBVIRT_HOOKS_DIR}/qemu
-	ln -s ${LIBVIRT_HOOKS_DIR}/hooks.py ${LIBVIRT_HOOKS_DIR}/lxc
+.PHONY: tests
+tests:
+	./test_hook.py
+	./test_hookctrl.py
 
+.PHONY: install
+install: tests /etc/libvirt/hooks/config.json
+	install -d /etc/libvirt/hooks
+	install hooks.py /etc/libvirt/hooks/
+	install hookjsonconf.py /etc/libvirt/hooks/
+	install hookctrl.py /etc/libvirt/hooks/hookctrl
+	ln -sf /etc/libvirt/hooks/hooks.py lxc
+	ln -sf /etc/libvirt/hooks/hooks.py qemu
+	ln -sf /etc/libvirt/hooks/hooks.py network
 
+/etc/libvirt/hooks/config.json:
+	install config.json /etc/libvirt/hooks/
 
-clean:
-	rm ${LIBVIRT_HOOKS_DIR}/hooks.py
-	rm ${LIBVIRT_HOOKS_DIR}/fwdconf.py
-	rm ${LIBVIRT_HOOKS_DIR}/network
-	rm ${LIBVIRT_HOOKS_DIR}/qemu
-	rm ${LIBVIRT_HOOKS_DIR}/lxc
+.PHONY: uninstall
+uninstall:
+	install /etc/libvirt/hooks/hooks.py
+	install /etc/libvirt/hooks/hookjsonconf.py
+	install /etc/libvirt/hooks/hookctrl
