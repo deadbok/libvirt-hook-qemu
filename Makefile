@@ -17,6 +17,7 @@ install: tests /etc/libvirt/hooks/config.json
 	ln -sf /etc/libvirt/hooks/hooks.py network
 
 /etc/libvirt/hooks/config.json:
+	install -d /etc/libvirt/hooks
 	install config.json /etc/libvirt/hooks/
 
 .PHONY: uninstall
