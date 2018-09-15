@@ -1,16 +1,6 @@
 {
-    "debug": true,
-    "machines": {
-        "test": {
-            "private_ip": "192.168.122.2",
-            "port_map": [
-                ["2222", "22"],
-                ["8002", "80"]
-            ]
-        }
-    },
-    "networks": {
-        "default": "192.168.122.0/24"
-    },
-    "public_ip": "192.168.0.166"
+    "debug": false,
+    "machines": {},
+    "networks":{},
+    "public_ip": ""
 }
