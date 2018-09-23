@@ -7,6 +7,14 @@ networking on a host with a single public IP address.
 
 Original version by "Sascha Peilicke <saschpe@gmx.de>" adapted for my use-case.
 
+
+0.3.1:
+======
+
+ * Remove code for old configuration format
+ * Better logging of JSON errors
+
+
 0.3.0:
 ======
 
@@ -225,18 +233,11 @@ def main():
             exit(0)
 
     except FileNotFoundError:
-        syslog.syslog('No config.py found, terminating.', syslog.LOG_ERR)
+        syslog.syslog('No {} found, terminating.'.format(CONFIG_FILENAME), syslog.LOG_ERR)
         exit(0)
-    except SyntaxError as exception:
-        syslog.syslog('Syntax error in config.py configuration file.',
-                      syslog.LOG_ERR)
-        syslog.syslog('{}:{}: {}'.format(exception.lineno,
-                                         exception.offset,
-                                         exception.text), syslog.LOG_ERR)
-        exit(1)
     except json.JSONDecodeError as jde:
-        syslog.syslog('Error loading configuration file: {} in {} line {} char {}'.format(
-                jde.msg, jde.doc, jde.lineno, jde.colno))
+        syslog.syslog('Error loading configuration file: {} in line {} char {}: {}'.format(
+                jde.msg, jde.lineno, jde.colno, jde.doc))
         exit(1)
 
 
